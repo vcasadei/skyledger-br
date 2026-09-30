@@ -68,7 +68,7 @@ spring:
     username: ${POSTGRES_USER:skyledger}
     password: ${POSTGRES_PASSWORD}
     hikari:
-      connection-timeout: 3s
+      connection-timeout: 3000   # ms
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -83,6 +83,8 @@ spring:
   precedência sobre arquivos de configuração no Spring Boot, o que atende ao
   cenário "Variável de ambiente sobrescreve o `.env`".
 - A senha não tem padrão: nenhum valor de senha fica no código.
+- `hikari.connection-timeout` é ligado a `long` em milissegundos: `3s` falha
+  na inicialização (verificado no apply). Por isso o valor é `3000`.
 - Os timeouts curtos existem porque o health-check abre conexão. Com os
   padrões (Hikari 30s, Lettuce 60s), `GET /actuator/health` travaria por
   dezenas de segundos com uma dependência fora.
@@ -103,16 +105,20 @@ ainda um placeholder, ele lança uma exceção com a mensagem "POSTGRES_PASSWORD
 não definida: exporte a variável ou crie o .env a partir de .env.example".
 Validar o `JdbcConnectionDetails`, e não a propriedade, faz a checagem
 funcionar também quando os testes recebem a conexão pelo Docker Compose (D6).
-Se no apply ficar provado que o Spring já falha sozinho com uma mensagem que
-cita a variável, o bean não é criado e isso é registrado aqui.
+*Verificado no apply (Boot 4.1.1):* sem `POSTGRES_PASSWORD`, a aplicação
+**inicia normalmente**, com o placeholder mantido como texto literal, então o
+bean é necessário. Com ele, `java -jar` sem `.env` e sem a variável termina
+com código 1 e a mensagem acima.
 
 ### D5. Health: só `health` exposto, e Redis como `DEGRADED`
 ```yaml
 management:
   endpoints.web.exposure.include: health
+  endpoints.web.discovery.enabled: false
   endpoint.health:
     show-components: always
     show-details: never
+    probes.enabled: false
     status.order: DOWN, OUT_OF_SERVICE, UP, DEGRADED, UNKNOWN
   health.redis.enabled: false
 ```
@@ -123,6 +129,13 @@ management:
 - Com `DEGRADED` depois de `UP` na ordem, a agregação resulta em `UP`. Como
   `DEGRADED` não está no mapeamento HTTP de 503 (que cobre só `DOWN` e
   `OUT_OF_SERVICE`), a resposta é 200.
+- `discovery.enabled: false`: sem isso, `GET /actuator` responde com a página
+  de links, que é outro endpoint do Actuator exposto (visto no apply, na
+  especificação gerada). Com a propriedade, ela responde 404.
+- `probes.enabled: false`: no Boot 4.1 os grupos `liveness` e `readiness`
+  vêm ativos por padrão (verificado no apply) e exporiam
+  `/actuator/health/liveness` e `/readiness`, além de listar `groups` na
+  resposta. Isso contraria o requisito de expor só `/actuator/health`.
 - `show-details: never` atende a "Resposta sem detalhes sensíveis". O
   indicador `db` de fábrica já mapeia banco fora para `DOWN` e 503.
 
@@ -130,15 +143,19 @@ management:
 resposta raiz e violaria o spec; ou um `StatusAggregator` customizado, que só
 enxerga status e não nomes, então não consegue tratar o Redis de forma
 diferente. O indicador é uma classe pequena e concreta, sem abstração genérica.
-O nome exato da classe do indicador de Redis no Boot 4 (que agora é
-modularizado) é confirmado no apply.
+*Verificado no apply:* a classe é
+`org.springframework.boot.data.redis.health.DataRedisHealthIndicator`, e o
+indicador automático é condicionado a
+`@ConditionalOnEnabledHealthIndicator("redis")`, desligado pela propriedade
+acima. O construtor de injeção leva `@Autowired`, porque há um segundo
+construtor (pacote) usado nos testes unitários.
 
 ### D6. Estratégia de testes
 | Cenário | Tipo | Como |
 |---------|------|------|
 | Mapeamento `DOWN` → `DEGRADED` | Unitário | Delegate mockado |
 | Todas as dependências `UP`, 404 em `/actuator/env` e `/actuator/beans`, 405 em POST, corpo sem detalhes, OpenAPI | Integração | `@SpringBootTest(webEnvironment = RANDOM_PORT)` com `spring-boot-docker-compose` (`spring.docker.compose.skip.in-tests=false`, `lifecycle-management=start-only`), que usa o `compose.yaml` existente e fornece as conexões sem credencial no teste |
-| Redis indisponível | Integração | Mesmo contexto, com `RedisConnectionFactory` substituída por `@MockitoBean` que lança exceção de conexão |
+| Redis indisponível | Integração | Mesmo contexto, com `LettuceConnectionFactory` substituída por `@MockitoBean` que lança exceção de conexão. Não pode ser `RedisConnectionFactory`, porque a auto-configuração reativa do Redis exige que o mesmo bean seja também `ReactiveRedisConnectionFactory` (verificado no apply) |
 | PostgreSQL indisponível | Integração | Compose desligado (`spring.docker.compose.enabled=false`), URL para porta local sem serviço e senha gerada aleatoriamente no teste |
 | Senha ausente | Integração | Contexto iniciado sem `POSTGRES_PASSWORD`, com Compose desligado. A falha precisa citar a variável |
 | Credenciais fora dos logs | Integração | `OutputCaptureExtension` na inicialização, com senha aleatória, verificando que ela não aparece |
@@ -152,6 +169,10 @@ leem, sem criar dados. Consequência: `./mvnw verify` exige Docker em execução
 a especificação gerada não trouxer a resposta 503, um `OpenApiCustomizer`
 (bean em `br.com.skyledger.config`) a acrescenta à operação. Isso é conferido
 no apply e coberto pelo teste de OpenAPI.
+*Verificado no apply:* o springdoc 3.1.1 gera só a resposta 200, com corpo sem
+schema. Por isso existe o `HealthOpenApiCustomizer`, que acrescenta a 503, o
+schema `HealthResponse` (`status` e `components.*.status`) e o resumo da
+operação.
 
 ### D8. Compilação estrita
 `maven-compiler-plugin` com `-Xlint:all,-processing` e `-Werror`: é a análise
