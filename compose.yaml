@@ -1,0 +1,106 @@
+# =============================================================================
+# SOMENTE DESENVOLVIMENTO LOCAL - NÃO USE EM PRODUÇÃO.
+#
+# Credenciais triviais, Redis sem senha e nenhum endurecimento (TLS, backup,
+# limites de recursos). As portas ficam restritas a 127.0.0.1.
+# Documentação: docs/ambiente-local.md
+# =============================================================================
+name: skyledger
+
+services:
+  postgres:
+    image: postgres:16.15
+    environment:
+      POSTGRES_DB: skyledger
+      POSTGRES_USER: skyledger
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-skyledger}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U skyledger -d skyledger"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:8.10
+    # Só cache: sem snapshots RDB nem AOF, sempre sobe vazio.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  seaweedfs:
+    # 4.40 é o piso de segurança do projeto (CVEs em versões anteriores).
+    image: chrislusf/seaweedfs:4.48
+    # O bucket é garantido pelo próprio serviço, e não por um container
+    # one-shot: `docker compose up --wait` trata a saída de um one-shot como
+    # falha quando o ambiente já está de pé. O healthcheck só passa depois que o
+    # bucket existe, então `--wait` retorna com ele pronto.
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        /entrypoint.sh server -s3 -s3.config=/etc/seaweedfs/s3.json &
+        pid=$$!
+        trap 'kill -TERM "$$pid"; wait "$$pid"; exit' TERM INT
+        shell() { echo "$$1" | weed shell -master=127.0.0.1:9333 -filer=127.0.0.1:8888; }
+        until wget -q -O /dev/null http://127.0.0.1:8333/healthz; do
+          kill -0 "$$pid" 2>/dev/null || exit 1
+          sleep 1
+        done
+        # s3.bucket.create falha com bucket existente: listar antes mantém a
+        # subida idempotente.
+        if shell "s3.bucket.list" | grep -qE '^[[:space:]]*skyledger-raw[[:space:]]'; then
+          echo "bucket skyledger-raw já existe"
+        else
+          shell "s3.bucket.create -name skyledger-raw" || { kill -TERM "$$pid"; exit 1; }
+        fi
+        touch /tmp/bucket-ready
+        wait "$$pid"
+    # O weed server leva ~25s no shutdown gracioso; com o padrão de 10s o
+    # Docker o mataria com SIGKILL no meio da gravação dos volumes.
+    stop_grace_period: 40s
+    configs:
+      - source: seaweedfs-s3
+        target: /etc/seaweedfs/s3.json
+    ports:
+      # Só a API S3; master (9333), volume (8080) e filer (8888) ficam internos.
+      - "127.0.0.1:8333:8333"
+    volumes:
+      - seaweedfs-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/bucket-ready && wget -q -O /dev/null http://127.0.0.1:8333/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+configs:
+  seaweedfs-s3:
+    # Uma única identidade Admin e nenhuma anônima: requisições sem assinatura
+    # são recusadas.
+    content: |
+      {
+        "identities": [
+          {
+            "name": "skyledger-dev",
+            "credentials": [
+              {
+                "accessKey": "${S3_ACCESS_KEY:-skyledger-dev}",
+                "secretKey": "${S3_SECRET_KEY:-skyledger-dev-secret}"
+              }
+            ],
+            "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+          }
+        ]
+      }
+
+volumes:
+  postgres-data:
+  seaweedfs-data:
