@@ -1,0 +1,37 @@
+schema: casadei
+
+# Project context: shown to the AI when creating every artifact.
+context: |
+  Stack:
+  - Java 21 (LTS), Spring Boot 4.1, build com Maven
+  - PostgreSQL 16 (banco relacional principal)
+  - Redis 8 (cache)
+  - SeaweedFS 4.40 ou superior (armazenamento de objetos/arquivos) - versões
+    anteriores têm CVEs críticos (path traversal, SSRF, bypass de IAM)
+
+  Convenções do projeto:
+  - Valores monetários são SEMPRE BigDecimal - nunca double, float nem outro
+    tipo de ponto flutuante binário, em nenhuma camada (domínio, DTO,
+    persistência, testes). No PostgreSQL, colunas monetárias usam NUMERIC com
+    precisão e escala explícitas.
+  - Todo endpoint REST público tem documentação OpenAPI.
+  - Os dados de origem vêm do repositório anac-data. O caminho até ele é
+    configuração externa (propriedade Spring sobrescrevível por variável de
+    ambiente), nunca um caminho fixo no código, em testes ou em fixtures.
+
+# Per-artifact rules: only what the casadei schema does not already cover.
+rules:
+  proposal:
+    - Quando a mudança envolver valores monetários, liste em Impact cada campo monetário afetado (entrada, saída, persistência) para que specs e tasks tratem precisão e arredondamento.
+    - Quando a mudança criar ou alterar endpoints REST públicos, liste-os em Impact (método e caminho) - cada um exige documentação OpenAPI.
+    - Quando a mudança consumir dados do anac-data, diga em Impact quais conjuntos de dados são lidos e se a propriedade de configuração do caminho é nova ou já existente.
+    - Quando a mudança tocar Redis ou SeaweedFS, diga em Impact o que é armazenado (chaves/buckets) e se isso muda o comportamento em caso de indisponibilidade desses serviços.
+  specs:
+    - Todo requisito sobre valor monetário SHALL declarar escala (casas decimais), moeda e regra de arredondamento, e o contrato SHALL exigir representação decimal exata - valores não trafegam como número de ponto flutuante. Inclua um cenário que exercite o arredondamento.
+    - Todo endpoint REST público especificado SHALL ter seu contrato completo no spec - requisição, respostas de sucesso e respostas de erro com seus códigos HTTP - de modo que a documentação OpenAPI possa ser verificada contra ele.
+    - Requisitos que leem dados do anac-data SHALL tratar a localização da fonte como configurável e incluir cenários para caminho não configurado, caminho inexistente e dados malformados.
+  tasks:
+    - Cada grupo que cria ou altera um endpoint REST público inclui uma task para sua documentação OpenAPI (operação, parâmetros, schemas e respostas de erro) e para verificar que ela aparece na especificação gerada.
+    - Cada grupo que introduz um campo monetário inclui uma task de teste que verifica escala e arredondamento, e, se houver persistência, a migração da coluna como NUMERIC com precisão e escala explícitas.
+    - Quando a mudança introduz a leitura de dados do anac-data, inclua uma task para expor o caminho como propriedade de configuração, registrá-la com valor de exemplo nos arquivos de configuração de exemplo do projeto, e testar com um caminho apontado para um diretório temporário.
+    - Quality Gates usam os comandos Maven do projeto (Maven Wrapper `./mvnw` quando existir), por exemplo `./mvnw verify`, em vez de descrições genéricas.
