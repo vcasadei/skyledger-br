@@ -6,3 +6,4 @@ e simular a exposição financeira de um benefício de reembolso por atraso.
 ## Desenvolvimento
 
 - [Ambiente local (Docker Compose)](docs/ambiente-local.md)
+- [Aplicação (build, execução, health-check, OpenAPI)](docs/aplicacao.md)

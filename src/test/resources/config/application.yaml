@@ -1,0 +1,10 @@
+# Carregado além de src/main/resources/application.yaml (classpath:/config/ tem
+# precedência). Nos testes, as conexões vêm do compose.yaml existente via
+# spring-boot-docker-compose, sem credenciais no código de teste.
+spring:
+  docker:
+    compose:
+      skip:
+        in-tests: false
+      # Não para o ambiente de desenvolvimento ao fim dos testes.
+      lifecycle-management: start-only

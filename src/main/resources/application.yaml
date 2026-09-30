@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: skyledger
+  config:
+    # Mesmo .env do compose.yaml (linhas CHAVE=valor são propriedades válidas).
+    # Variáveis de ambiente do SO têm precedência sobre ele.
+    import: optional:file:.env[.properties]
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:skyledger}
+    username: ${POSTGRES_USER:skyledger}
+    # Sem valor padrão: a senha vem só do ambiente ou do .env.
+    password: ${POSTGRES_PASSWORD}
+    hikari:
+      # O health-check abre conexão; com o padrão (30s) ele travaria com o banco fora.
+      connection-timeout: 3000 # ms (propriedade do Hikari, não aceita Duration)
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2s
+      connect-timeout: 2s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+      # Sem a página de links em /actuator: o spec expõe só /actuator/health.
+      discovery:
+        enabled: false
+  endpoint:
+    health:
+      show-components: always
+      show-details: never
+      # Sem grupos liveness/readiness: o spec expõe só /actuator/health.
+      probes:
+        enabled: false
+      status:
+        # DEGRADED abaixo de UP: Redis degradado não derruba o status geral.
+        order: DOWN, OUT_OF_SERVICE, UP, DEGRADED, UNKNOWN
+  health:
+    # Substituído por RedisDegradableHealthIndicator (bean "redis").
+    redis:
+      enabled: false
+
+springdoc:
+  # Inclui /actuator/health na especificação OpenAPI gerada.
+  show-actuator: true
