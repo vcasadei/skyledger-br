@@ -42,7 +42,7 @@
 - [x] 5.1 Cenário "Senha lida do `.env` local": com `cp .env.example .env`, `docker compose up -d --wait` e `./mvnw spring-boot:run`, o health-check retorna 200 com `db` `UP`
 - [x] 5.2 Cenário "Variável de ambiente sobrescreve o `.env`": `POSTGRES_PASSWORD=errada ./mvnw spring-boot:run` resulta em health-check 503 com `db` `DOWN`
 - [x] 5.3 Cenários "PostgreSQL fora na inicialização e depois recuperado" e "Redis apontado para endereço sem serviço": com `docker compose stop postgres`, subir a aplicação resulta em 503; `docker compose start postgres` leva a 200 sem reiniciar. Com `REDIS_PORT=6390`, a aplicação sobe com `redis` `DEGRADED`
-- [ ] 5.4 Cenário "Interface da documentação": abrir `http://localhost:8080/swagger-ui.html` no navegador e ver `GET /actuator/health` listado
+- [x] 5.4 Cenário "Interface da documentação": abrir `http://localhost:8080/swagger-ui.html` no navegador e ver `GET /actuator/health` listado
 - [x] 5.5 Seguir `docs/aplicacao.md` do zero, exatamente como escrito, e confirmar que todos os comandos funcionam
 
 ## 6. Quality Gates
