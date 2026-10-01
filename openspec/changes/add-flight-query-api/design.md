@@ -161,11 +161,22 @@ frontend/
 - TypeScript 7.0 é o compilador nativo novo. Se o `tsc -b` dele não for
   compatível com o template do Vite 8, a versão cai para a última 6.x e isso
   é registrado aqui (Riscos).
+- *Verificado no apply:* o TypeScript 7.0.2 funciona, e o plano B não foi
+  necessário. Ajustes feitos:
+  - o script de build é `tsc --noEmit && vite build`, com um único
+    `tsconfig.json`, sem *project references* que justificassem `tsc -b`;
+  - os pacotes de tipos `@types/react` e `@types/react-dom` 19.3, só de dev e
+    necessários para React com TypeScript;
+  - `src/vite-env.d.ts` com os tipos de cliente do Vite, porque no TS 7 o
+    `noUncheckedSideEffectImports` vem ligado e o `import './styles.css'`
+    exige declaração.
+
+  `jest-dom` e `user-event` ficaram de fora, porque não foram aprovados; os
+  testes usam `fireEvent` e asserções do Vitest.
 
 ### D8. Build integrado ao Maven
 `frontend-maven-plugin` 2.0.2 no `pom.xml`, com
-`workingDirectory=frontend`, Node `v24.21.0` instalado em `frontend/node/`
-(gitignorado) e estas execuções:
+`workingDirectory=frontend`, Node `v24.21.0` e estas execuções:
 
 | Execução | Fase | Comando |
 |----------|------|---------|
@@ -180,6 +191,12 @@ fase `test` já encontram a tela. Para desenvolver só o back-end,
 `-Dskip.npm -Dskip.installnodenpm` pula o front, e isso fica documentado.
 *Alternativa:* copiar `frontend/dist` com o `maven-resources-plugin` no
 `prepare-package`, o que chegaria tarde demais para os testes da fase `test`.
+*Mudança no apply:* o Node é instalado em `${user.home}/.cache/skyledger/node`,
+e não em `frontend/node/`. Com o repositório em `/mnt/c` (WSL), o plugin
+levou mais de 16 minutos copiando a distribuição do Node, que tem milhares
+de arquivos, para dentro do projeto. Fora dele, o `package` completo leva
+cerca de 1 minuto. O cache por usuário funciona igual em qualquer sistema e
+dispensa a entrada no `.gitignore`.
 
 ### D9. Testes
 | Cobertura | Tipo |
