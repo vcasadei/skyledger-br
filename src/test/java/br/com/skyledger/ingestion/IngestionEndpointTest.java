@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.willThrow;
 
 import br.com.skyledger.ingestion.persistence.FlightRepository;
+import br.com.skyledger.support.TestDatabase;
 import java.net.http.HttpResponse;
 import java.nio.file.Path;
 import java.util.List;
@@ -158,11 +159,7 @@ class IngestionEndpointTest {
     }
 
     static void truncateAll(JdbcClient jdbc) {
-        // Proteção: nunca truncar fora do schema de testes (o public é o de desenvolvimento).
-        assertThat(jdbc.sql("SELECT current_schema()").query(String.class).single())
-                .as("schema da conexão de teste").isEqualTo("skyledger_test");
-        jdbc.sql("TRUNCATE flight, ingestion_rejection, ingestion_batch, airport, airline RESTART IDENTITY CASCADE")
-                .update();
+        TestDatabase.truncateAll(jdbc);
     }
 
     static void assertNothingWritten(JdbcClient jdbc) {

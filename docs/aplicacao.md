@@ -21,6 +21,35 @@ documentação OpenAPI dos seus endpoints.
 
 O JAR executável é gerado em `target/skyledger-0.1.0-SNAPSHOT.jar`.
 
+### Front-end (tela de busca)
+
+A tela fica em `frontend/` (React 19, Vite 8, TypeScript 7, testes com Vitest)
+e é compilada **dentro do `./mvnw verify`** pelo `frontend-maven-plugin`. Não é
+preciso instalar Node: o plugin baixa o Node `v24.21.0` para `frontend/node/`.
+
+| Fase Maven | O que roda |
+|------------|------------|
+| `initialize` | Baixa o Node/npm (só na primeira vez) e roda `npm ci` |
+| `generate-resources` | `npm run build` (`tsc --noEmit` + `vite build`) direto em `target/classes/static` |
+| `test` | `npm test` (`vitest run`), junto com os testes Java |
+
+- A primeira execução precisa de rede: Node em `nodejs.org` e pacotes no
+  registro npm. Depois, `frontend/node/` e `~/.npm` funcionam como cache.
+- Neste repositório em `/mnt/c` (WSL), extrair o Node e rodar `npm ci` é lento
+  (minutos) por causa do sistema de arquivos do Windows.
+- Só o back-end: `./mvnw verify -Dskip.npm -Dskip.installnodenpm` pula o front.
+  Se pular no `package`, o JAR sai sem a tela.
+
+**Desenvolvimento da tela** com recarga automática:
+
+```bash
+./mvnw spring-boot:run          # API em :8080 (terminal 1)
+cd frontend && npm run dev      # Vite em http://localhost:5173 (terminal 2)
+```
+
+O Vite repassa `/flights` para `:8080` (proxy), sem CORS. Os testes do front
+também rodam sozinhos com `cd frontend && npm test`.
+
 ## Execução
 
 ```bash

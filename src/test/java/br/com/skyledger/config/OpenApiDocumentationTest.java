@@ -5,6 +5,8 @@ import static br.com.skyledger.support.LocalHttp.json;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.net.http.HttpResponse;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -62,6 +64,36 @@ class OpenApiDocumentationTest {
         assertThat(schemas.path("FileReport").path("properties").propertyNames()).contains("dataset", "file",
                 "status", "sourceUpdatedAt", "sha256", "rowsRead", "inserted", "updated", "duplicates",
                 "rejected", "rejections", "error");
+    }
+
+    /** Cenário "Operação documentada" de {@code GET /flights}. */
+    @Test
+    void documentsFlightQuery() {
+        JsonNode spec = json(get(port, "/v3/api-docs"));
+        JsonNode operation = spec.path("paths").path("/flights").path("get");
+        Map<String, JsonNode> parameters = new HashMap<>();
+        operation.path("parameters").valueStream().forEach(p -> parameters.put(p.path("name").asString(), p));
+
+        assertThat(parameters).containsOnlyKeys("airport", "direction", "from", "to", "status", "page", "size",
+                "sort");
+        assertThat(parameters.get("airport").path("required").asBoolean()).isTrue();
+        assertThat(parameters.get("size").path("schema").path("maximum").asInt()).isEqualTo(100);
+        assertThat(parameters.get("direction").path("schema").path("enum").valueStream()
+                .map(JsonNode::asString)).containsExactlyInAnyOrder("DEPARTURE", "ARRIVAL", "BOTH");
+        assertThat(parameters.get("status").path("schema").path("enum").valueStream()
+                .map(JsonNode::asString)).containsExactlyInAnyOrder("REALIZADO", "CANCELADO");
+        assertThat(parameters.get("sort").path("schema").path("enum").valueStream().map(JsonNode::asString))
+                .contains("delay,desc", "departure,asc");
+        assertThat(operation.path("description").asString()).contains("ICAO", "sem fuso");
+        assertThat(operation.path("responses").propertyNames()).contains("200", "400", "404", "503");
+        assertThat(operation.path("responses").path("200").path("content").path("application/json")
+                .path("schema").path("$ref").asString()).endsWith("/FlightPage");
+        JsonNode schemas = spec.path("components").path("schemas");
+        assertThat(schemas.path("FlightView").path("properties").propertyNames()).contains("airline",
+                "flightNumber", "origin", "destination", "scheduledDeparture", "actualDeparture",
+                "scheduledArrival", "actualArrival", "status", "departureDelayMinutes");
+        assertThat(schemas.path("FlightPage").path("properties").propertyNames()).contains("content", "page",
+                "size", "totalElements", "totalPages", "sort");
     }
 
     /** Parte automatizável do cenário "Interface da documentação". */

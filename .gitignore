@@ -3,3 +3,6 @@
 
 # Saída do build Maven
 target/
+
+# Front-end: dependências npm (o Node fica em ~/.cache/skyledger/node)
+frontend/node_modules/
