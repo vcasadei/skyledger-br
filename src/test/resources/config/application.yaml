@@ -8,3 +8,11 @@ spring:
         in-tests: false
       # Não para o ambiente de desenvolvimento ao fim dos testes.
       lifecycle-management: start-only
+  # Testes usam um schema próprio: o Flyway roda na subida e, sem isso, criaria
+  # tabelas e gravaria fixtures no schema public do banco de desenvolvimento.
+  flyway:
+    default-schema: skyledger_test
+    create-schemas: true
+  datasource:
+    hikari:
+      schema: skyledger_test

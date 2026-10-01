@@ -15,8 +15,8 @@ import org.springframework.context.ConfigurableApplicationContext;
 /**
  * Cobre a inicialização sem senha do PostgreSQL e a ausência da senha nos logs.
  *
- * <p>Os contextos são iniciados com o Docker Compose desligado e o banco
- * apontado para uma porta sem serviço: nenhum dos cenários precisa de conexão.
+ * <p>Os contextos são iniciados com o Docker Compose e o Flyway desligados e o
+ * banco apontado para uma porta sem serviço: nenhum dos cenários precisa de conexão.
  */
 @ExtendWith(OutputCaptureExtension.class)
 class DatabaseCredentialsCheckTest {
@@ -63,6 +63,8 @@ class DatabaseCredentialsCheckTest {
     private static ConfigurableApplicationContext start(String passwordArgument) {
         return SpringApplication.run(SkyledgerApplication.class,
                 "--spring.docker.compose.enabled=false",
+                // Os cenários são de senha e logs, não de migração: sem Flyway, o banco não é contatado.
+                "--spring.flyway.enabled=false",
                 "--server.port=0",
                 NO_DATABASE_URL,
                 passwordArgument);

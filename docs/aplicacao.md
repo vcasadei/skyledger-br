@@ -29,6 +29,11 @@ docker compose up -d --wait     # ambiente local (PostgreSQL, Redis, SeaweedFS)
 ./mvnw spring-boot:run          # sempre a partir da raiz do repositório
 ```
 
+Na inicialização, a aplicação aplica as migrações de esquema pendentes
+(Flyway, `src/main/resources/db/migration`). **Por isso, o PostgreSQL precisa
+estar de pé antes:** sem ele, ou com a senha errada, a inicialização falha com
+código de saída diferente de zero. O Redis continua opcional na subida.
+
 A aplicação escuta em `http://localhost:8080`. Rode sempre a partir da raiz: o
 `.env` é lido do diretório de trabalho. Sem `POSTGRES_PASSWORD`, a
 inicialização falha com `POSTGRES_PASSWORD não definida: exporte a variável ou
@@ -49,6 +54,7 @@ do `compose.yaml`. **O ambiente tem precedência sobre o `.env`.**
 | `REDIS_HOST` | `localhost` | Host do Redis (sem senha) |
 | `REDIS_PORT` | `6379` | Porta do Redis |
 | `SERVER_PORT` | `8080` | Porta HTTP da aplicação |
+| `ANAC_DATA_PATH` | **nenhum** | Raiz do repositório `anac-data`, lida por `POST /api/ingestions` (ver [ingestão](ingestao.md)). Sem ela a app sobe, mas a ingestão responde 503 |
 
 Timeouts de conexão: 3s no PostgreSQL (pool Hikari) e 2s no Redis. Com uma
 dependência fora, o health-check responde nesse prazo em vez de travar.
@@ -68,8 +74,9 @@ dependência fora, o health-check responde nesse prazo em vez de travar.
   aplicação continua atendendo e o status geral fica `UP`. O `redis` nunca
   reporta `DOWN`.
 - A resposta não traz detalhes (hosts, portas, versões, banco): só os status.
-- A aplicação sobe mesmo com PostgreSQL ou Redis fora. Quando a dependência
-  volta, o health-check reflete isso sem reiniciar.
+- A aplicação **não** sobe sem o PostgreSQL, por causa das migrações, mas
+  sobe com o Redis fora. Com a aplicação no ar, a queda e a volta de qualquer
+  dependência aparecem no health-check sem reiniciar.
 
 Exemplo, com tudo de pé:
 
@@ -110,8 +117,9 @@ rodam da raiz, com `.env` criado e o ambiente local de pé.
 | Cenário | Como verificar | Esperado |
 |---------|----------------|----------|
 | Senha lida do `.env` | `./mvnw spring-boot:run`, sem exportar nada | `/actuator/health` → 200, `db` `UP` |
-| Ambiente sobrescreve o `.env` | `POSTGRES_PASSWORD=errada ./mvnw spring-boot:run` | 503, `db` `DOWN` |
-| PostgreSQL fora na inicialização | `docker compose stop postgres`, subir a app e depois `docker compose start postgres` | 503, depois 200 sem reiniciar |
+| Ambiente sobrescreve o `.env` | `POSTGRES_PASSWORD=errada ./mvnw spring-boot:run` | Inicialização falha com erro de autenticação do PostgreSQL |
+| PostgreSQL fora na inicialização | `docker compose stop postgres` e subir a app; depois `docker compose start postgres` e subir de novo | Primeira subida falha; a segunda sobe e o health retorna 200 |
+| PostgreSQL cai com a app no ar | Com a app rodando, `docker compose stop postgres` e depois `docker compose start postgres` | 503 com `db` `DOWN`, depois 200 sem reiniciar |
 | Redis em endereço sem serviço | `REDIS_PORT=6390 ./mvnw spring-boot:run` | 200, `redis` `DEGRADED` |
 | Build com JDK antigo | `docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD":/w -w /w eclipse-temurin:17 ./mvnw -q validate` | Falha antes de compilar, pedindo Java 21 |
 | Swagger UI | Abrir `http://localhost:8080/swagger-ui.html` no navegador | Lista `GET /actuator/health` |

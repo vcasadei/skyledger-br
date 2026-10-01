@@ -20,6 +20,8 @@ import tools.jackson.databind.JsonNode;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
             "spring.docker.compose.enabled=false",
+            // Testa o health com o banco caindo depois da subida: sem migração na inicialização.
+            "spring.flyway.enabled=false",
             "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/skyledger"
         })
 class PostgresUnavailableHealthTest {

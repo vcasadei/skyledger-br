@@ -1,0 +1,3 @@
+# Fixtures de teste com encoding e quebras de linha exatos (ISO-8859-1, BOM, CRLF):
+# o git não deve converter os bytes.
+src/test/resources/fixtures/** -text

@@ -42,6 +42,28 @@ class OpenApiDocumentationTest {
                 .containsExactly("/actuator/health");
     }
 
+    /** {@code POST /api/ingestions} documentado com 200, 409 e 503 e o schema do relatório. */
+    @Test
+    void documentsIngestionEndpoint() {
+        JsonNode spec = json(get(port, "/v3/api-docs"));
+        JsonNode operation = spec.path("paths").path("/api/ingestions").path("post");
+        JsonNode responses = operation.path("responses");
+
+        assertThat(operation.path("summary").asString()).isNotBlank();
+        assertThat(operation.path("description").asString()).contains("Idempotente");
+        assertThat(responses.propertyNames()).contains("200", "409", "503");
+        assertThat(responses.path("200").path("content").path("application/json").path("schema").path("$ref")
+                .asString()).endsWith("/IngestionReport");
+        assertThat(responses.path("409").path("content").has("application/problem+json")).isTrue();
+        assertThat(responses.path("503").path("content").has("application/problem+json")).isTrue();
+        JsonNode schemas = spec.path("components").path("schemas");
+        assertThat(schemas.path("IngestionReport").path("properties").propertyNames())
+                .contains("startedAt", "finishedAt", "files");
+        assertThat(schemas.path("FileReport").path("properties").propertyNames()).contains("dataset", "file",
+                "status", "sourceUpdatedAt", "sha256", "rowsRead", "inserted", "updated", "duplicates",
+                "rejected", "rejections", "error");
+    }
+
     /** Parte automatizável do cenário "Interface da documentação". */
     @Test
     void servesSwaggerUi() {

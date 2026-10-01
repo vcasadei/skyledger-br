@@ -13,12 +13,22 @@ spring:
     hikari:
       # O health-check abre conexão; com o padrão (30s) ele travaria com o banco fora.
       connection-timeout: 3000 # ms (propriedade do Hikari, não aceita Duration)
+  mvc:
+    # Erros do próprio Spring MVC (ex.: 405) também em application/problem+json.
+    problemdetails:
+      enabled: true
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       timeout: 2s
       connect-timeout: 2s
+
+skyledger:
+  anac-data:
+    # Raiz do repositório anac-data (relativa ao diretório de trabalho ou
+    # absoluta). Sem padrão: sem ANAC_DATA_PATH, POST /api/ingestions responde 503.
+    path: ${ANAC_DATA_PATH:}
 
 management:
   endpoints:
