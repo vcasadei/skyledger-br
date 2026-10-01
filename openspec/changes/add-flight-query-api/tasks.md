@@ -44,7 +44,7 @@
 
 - [x] 6.1 Com o banco de dev já ingerido (252.725 voos) e a aplicação no ar: `GET /flights?airport=SBGR` retorna `totalElements` 75062, e `DEPARTURE` + `ARRIVAL` − (voos com origem igual ao destino em `SBGR`) = 75062, conferido por SQL. Cada requisição, inclusive `page` próxima da última com `size=100`, responde em menos de 500 ms
 - [x] 6.2 Conferir por SQL que um voo de `SBGR` retornado pela API tem o mesmo atraso calculado, e que `sort=delay,desc` começa pelo maior atraso de `SBGR`
-- [ ] 6.3 Abrir `http://localhost:8080/` no navegador, buscar `SBGR` e exercitar os filtros, a paginação, a ordenação por atraso e a mensagem de erro com `GRU`, e seguir `docs/consulta-voos.md` do zero, exatamente como escrito (verificação no navegador feita pelo desenvolvedor)
+- [x] 6.3 Abrir `http://localhost:8080/` no navegador, buscar `SBGR` e exercitar os filtros, a paginação, a ordenação por atraso e a mensagem de erro com `GRU`, e seguir `docs/consulta-voos.md` do zero, exatamente como escrito (verificação no navegador feita pelo desenvolvedor)
 
 ## 7. Quality Gates
 
