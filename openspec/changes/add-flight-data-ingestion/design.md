@@ -186,6 +186,12 @@ brasileiros já chegam completos. Os criados pelo VRA ficam com
   rejeitar seria inventar uma regra.
 - Cadastro: latitude e longitude com `new BigDecimal(valor)` (ponto decimal),
   altitude com `,` trocada por `.` e `new BigDecimal`. Nunca `double`.
+- *Visto no apply, com os dados reais:* o `SBMI` (Maricá) tem `Altitude` `,0`,
+  único caso. Interpretar como `0,0` m seria inventar dado, porque o
+  aeroporto fica acima do nível do mar. Por decisão do usuário, altitude
+  vazia ou sem parte inteira vira ausente (`NULL`) e a linha é aceita, o que
+  mantém os 496 aeródromos. Coordenadas: até 3 dígitos inteiros e 9 decimais,
+  validados para caber exatos em `numeric(12,9)`.
 
 ### D7. Endpoint, erros e concorrência
 - `IngestionController` com `POST /api/ingestions` chama o `IngestionService`
@@ -223,8 +229,16 @@ O placeholder explícito funciona igual nas duas origens.
   conexões). As tabelas de teste ficam fora do schema `public` do banco de
   dev, e cada teste de ingestão faz `TRUNCATE` antes. Se a propriedade do
   Hikari não pegar com a conexão do Docker Compose, a alternativa é
-  `currentSchema` na URL via `JdbcConnectionDetails` de teste; a escolha final
-  fica registrada aqui no apply.
+  `currentSchema` na URL via `JdbcConnectionDetails` de teste.
+  *Verificado no apply:* o `hikari.schema` funciona com a conexão do Docker
+  Compose (`current_schema()` = `skyledger_test` no teste), e o `public` de
+  dev ficou com 0 tabelas.
+  *Achado no apply:* na suíte completa, um `SET search_path` + `RESET` via SQL
+  no teste de rollback devolvia ao pool uma conexão em `public` (o `RESET`
+  volta ao padrão do servidor, e o Hikari só restaura o schema quando a troca
+  é feita pela API JDBC). Correção: `Connection.setSchema(...)` no teste e uma
+  proteção em toda rotina de `TRUNCATE` de teste, que falha se o
+  `current_schema()` não for `skyledger_test`.
 - **Fixtures:** strings de CSV em arquivos de `src/test/resources/fixtures/`,
   copiadas em cada teste para um `@TempDir` com o layout
   `data/raw/anac/{vra,aerodromos}/`. O `skyledger.anac-data.path` aponta para
@@ -299,5 +313,3 @@ e têm rollback testado.
 - [Comportamento BREAKING da inicialização] → documentado na proposta e em
   `docs/aplicacao.md`. O health-check segue reportando a queda do banco
   depois da subida.
-- [`hikari.schema` com a conexão do Docker Compose não verificado] →
-  conferido no apply, com alternativa registrada no D9.

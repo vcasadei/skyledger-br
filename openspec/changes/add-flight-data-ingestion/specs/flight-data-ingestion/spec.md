@@ -247,7 +247,8 @@ mapeadas pelo nome. Para cada linha válida, o aeroporto do `Código OACI` é
 criado, ou, se já existir, atualizado com: nome, município, UF (como
 publicada, por extenso), latitude (`LATGEOPOINT`) e longitude (`LONGEOPOINT`)
 em graus decimais com ponto, altitude em metros com vírgula decimal, e
-situação (`Cadastrado` ou `Interditado`). Coordenadas e altitude MUST ser
+situação (`Cadastrado` ou `Interditado`). Altitude vazia ou sem parte inteira
+(`,0`) MUST virar ausência de valor, e não zero. Coordenadas e altitude MUST ser
 gravadas como decimais exatos, nunca como ponto flutuante binário. Município e
 UF vazios viram ausência de valor. Linhas com código inválido, número de
 campos diferente de 18 ou número mal formado MUST ser rejeitadas e
@@ -273,6 +274,11 @@ e a ingestão do VRA MUST continuar mesmo assim.
 - **AS A** operador
 - **WHEN** a ingestão processa um aeródromo com `Município` e `UF` vazios
 - **THEN** o aeroporto é gravado com município e UF ausentes, e os demais campos preenchidos
+
+#### Scenario: Altitude sem parte inteira
+- **AS A** operador
+- **WHEN** a ingestão processa o aeródromo `SBMI`, com `Altitude` igual a `,0`
+- **THEN** o aeroporto é gravado com nome, município, UF e coordenadas, e sem altitude
 
 #### Scenario: Altitude mal formada
 - **AS A** operador
